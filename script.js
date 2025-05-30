@@ -1,6 +1,16 @@
 class VolumeDisplay {
     constructor() {
-        this.apiUrl = 'https://api-airdrop-beta.paintswap.finance/interval-data/S/1?interval=day';
+        // Base API URLs for easy configuration
+        this.baseApiUrl = 'https://api-airdrop-beta.paintswap.finance';
+        this.priceApiUrl = 'https://api.paintswap.finance/v2/tokens?addresses%5B0%5D=0x1b6382dbdea11d97f24495c9a90b7c88469134a4numToFetch=1&chainId=146';
+        
+        // API endpoints for different tokens
+        this.apiEndpoints = {
+            S: `${this.baseApiUrl}/interval-data/S/1?interval=day`,
+            USDC: `${this.baseApiUrl}/interval-data/USDC/1?interval=day`,
+            SCUSD: `${this.baseApiUrl}/interval-data/SCUSD/1?interval=day`
+        };
+        
         this.externalLink = 'https://airdrop.paintswap.io';
         this.currentVolume = 0;
         this.displayElement = null;
@@ -9,6 +19,9 @@ class VolumeDisplay {
         this.isInitialized = false;
         this.animationFrameId = null;
         this.isFirstLoad = true; // Track if this is the first volume load
+        
+        // Price data
+        this.sPrice = null; // Price of 1 S in USDC
         
         // Test counter settings
         this.useTestCounter = false; // Set to false to use real API data
@@ -30,6 +43,11 @@ class VolumeDisplay {
         this.charsMap = '0123456789';
         this.animations = new Map();
         
+        // Chart properties
+        this.chart = null;
+        this.chartData = [];
+        this.chartElement = null;
+        
         this.init();
     }
 
@@ -37,6 +55,7 @@ class VolumeDisplay {
         this.createHTML();
         setTimeout(() => {
             this.setupDisplay();
+            this.initChart();
             this.startUpdating();
         }, 100);
     }
@@ -47,12 +66,16 @@ class VolumeDisplay {
                 <div class="volume-display clickable" title="Click to visit airdrop.paintswap.io">
                     <div class="loading">Loading volume data...</div>
                 </div>
+                <div class="chart-container">
+                    <canvas id="volumeChart"></canvas>
+                </div>
             </div>
             <div class="status clickable" id="status" title="Click to visit airdrop.paintswap.io">Connecting...</div>
         `;
         
         this.displayElement = document.querySelector('.volume-display');
         this.statusElement = document.getElementById('status');
+        this.chartElement = document.getElementById('volumeChart');
         
         // Add click event listener to status element
         this.statusElement.addEventListener('click', () => {
@@ -65,41 +88,171 @@ class VolumeDisplay {
         });
     }
 
-    async fetchVolumeData() {
+    async fetchSPrice() {
         try {
-            const response = await fetch(this.apiUrl);
+            const response = await fetch(this.priceApiUrl);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
             const data = await response.json();
+            const sToken = data.tokens['0x039e2fb66102314ce7b64ce5ce3e5183bc94ad38'];
             
-            if (!data.orderSoldIntervalDatas || !Array.isArray(data.orderSoldIntervalDatas)) {
-                throw new Error('Invalid data format received');
+            if (!sToken || !sToken.price) {
+                throw new Error('S token price not found in response');
+            }
+            
+            this.sPrice = parseFloat(sToken.price);
+            console.log('S price fetched:', this.sPrice, 'USDC');
+            return this.sPrice;
+            
+        } catch (error) {
+            console.error('Error fetching S price:', error);
+            // Fallback price if API fails
+            this.sPrice = 0.4;
+            console.log('Using fallback S price:', this.sPrice);
+            return this.sPrice;
+        }
+    }
+
+    async fetchVolumeData() {
+        try {
+            // First fetch S price
+            await this.fetchSPrice();
+            
+            // Fetch data from all three endpoints - ALL must succeed for data integrity
+            const [sResponse, usdcResponse, scusdResponse] = await Promise.all([
+                fetch(this.apiEndpoints.S),
+                fetch(this.apiEndpoints.USDC),
+                fetch(this.apiEndpoints.SCUSD)
+            ]);
+
+            // Check that ALL endpoints succeeded
+            if (!sResponse.ok) {
+                throw new Error(`S API failed! status: ${sResponse.status}`);
+            }
+            if (!usdcResponse.ok) {
+                throw new Error(`USDC API failed! status: ${usdcResponse.status}`);
+            }
+            if (!scusdResponse.ok) {
+                throw new Error(`SCUSD API failed! status: ${scusdResponse.status}`);
             }
 
-            // Calculate total accumulated volume by summing all totalCost values
-            const totalVolume = data.orderSoldIntervalDatas.reduce((sum, item) => {
-                const cost = parseFloat(item.totalCost) || 0;
-                return sum + cost;
-            }, 0);
+            // Parse all responses - if any fail, the whole update fails
+            const sData = await sResponse.json();
+            const usdcData = await usdcResponse.json();
+            const scusdData = await scusdResponse.json();
 
-            // Convert from wei to a more readable format (assuming 18 decimals)
-            const volumeInTokens = totalVolume / Math.pow(10, 18);
+            // Validate that all responses have the expected structure
+            if (!sData.orderSoldIntervalDatas && !sData.intervalDatas) {
+                throw new Error('S API returned invalid data structure');
+            }
+
+            console.log('All APIs succeeded - processing combined volume data');
+            console.log('S data points:', (sData.intervalDatas || sData.orderSoldIntervalDatas).length);
+            console.log('USDC data points:', (usdcData.intervalDatas || usdcData.orderSoldIntervalDatas || []).length);
+            console.log('SCUSD data points:', (scusdData.intervalDatas || scusdData.orderSoldIntervalDatas || []).length);
+
+            // Process and combine data
+            const combinedData = this.combineVolumeData(sData, usdcData, scusdData);
+            
+            // Calculate total volume in S
+            const totalVolumeS = combinedData.reduce((sum, item) => sum + item.volume, 0);
+            
+            // Update chart with combined data
+            this.chartData = combinedData.sort((a, b) => a.date - b.date);
+            this.updateChart();
             
             this.updateStatus(`Last updated: ${new Date().toLocaleDateString('en-US', { 
                 month: 'long', 
                 day: 'numeric' 
             })} ${new Date().toLocaleTimeString('en-US')}`, false);
             
-            return Math.floor(volumeInTokens);
+            return Math.floor(totalVolumeS);
             
         } catch (error) {
             console.error('Error fetching volume data:', error);
-            this.updateStatus(`Error: ${error.message}`, false);
-            this.showError(`Failed to fetch data: ${error.message}`);
+            this.updateStatus(`Error: ${error.message} - Data incomplete`, true);
+            
+            // Don't update display with partial data - keep showing last known good data
+            // Only show error in status, don't change the volume display
+            console.warn('Keeping previous volume data due to API failure');
             return null;
         }
+    }
+
+    combineVolumeData(sData, usdcData, scusdData) {
+        const dataMap = new Map(); // Use timestamp as key to combine same-day data
+        
+        // All three data sources are guaranteed to be available and valid at this point
+        
+        // Helper function to process data and ensure all dates are captured
+        const processDataArray = (dataArray, tokenName, decimals, priceConversion = 1) => {
+            dataArray.forEach(item => {
+                const timestampMs = parseInt(item.timestamp) / 1000;
+                const cost = parseFloat(item.totalCost) || 0;
+                const volume = (cost / Math.pow(10, decimals)) / priceConversion; // Convert to S
+                
+                const key = timestampMs.toString();
+                if (!dataMap.has(key)) {
+                    dataMap.set(key, {
+                        date: new Date(timestampMs),
+                        volumeS: 0,
+                        sources: [],
+                        breakdown: { S: 0, USDC: 0, SCUSD: 0 }
+                    });
+                }
+                
+                const entry = dataMap.get(key);
+                entry.volumeS += volume;
+                entry.sources.push(tokenName);
+                entry.breakdown[tokenName] = volume;
+            });
+        };
+        
+        // Process each data source - missing dates will automatically be 0
+        const sDataArray = sData.intervalDatas || sData.orderSoldIntervalDatas;
+        const usdcDataArray = usdcData.intervalDatas || usdcData.orderSoldIntervalDatas || [];
+        const scusdDataArray = scusdData.intervalDatas || scusdData.orderSoldIntervalDatas || [];
+        
+        // Process S data (already in S, 18 decimals, no price conversion)
+        processDataArray(sDataArray, 'S', 18, 1);
+        
+        // Process USDC data (6 decimals, convert using S price)
+        processDataArray(usdcDataArray, 'USDC', 6, this.sPrice);
+        
+        // Process SCUSD data (6 decimals, convert using S price - treat as USDC)
+        processDataArray(scusdDataArray, 'SCUSD', 6, this.sPrice);
+        
+        // Convert map to array and format for chart
+        const result = Array.from(dataMap.values()).map(item => ({
+            date: item.date,
+            volume: Math.round(item.volumeS * 10) / 10, // Round to 1 decimal place
+            sources: item.sources,
+            breakdown: {
+                S: Math.round(item.breakdown.S * 10) / 10,
+                USDC: Math.round(item.breakdown.USDC * 10) / 10,
+                SCUSD: Math.round(item.breakdown.SCUSD * 10) / 10
+            }
+        }));
+        
+        console.log('Combined volume data processed:', result.length, 'unique dates');
+        if (result.length > 0) {
+            console.log('Sample combined data:', result[0]);
+            console.log('Date range coverage:');
+            console.log('- S data points:', sDataArray.length);
+            console.log('- USDC data points:', usdcDataArray.length); 
+            console.log('- SCUSD data points:', scusdDataArray.length);
+            console.log('- Combined unique dates:', result.length);
+            
+            // Show breakdown for each date
+            result.forEach(d => {
+                const breakdown = `S:${d.breakdown.S} + USDC:${d.breakdown.USDC} + SCUSD:${d.breakdown.SCUSD} = ${d.volume}`;
+                console.log(`${d.date.toDateString()}: ${breakdown}`);
+            });
+        }
+        
+        return result;
     }
 
     updateStatus(message, isUpdating = false) {
@@ -453,7 +606,135 @@ class VolumeDisplay {
         if (this.isInitialized) {
             const currentText = this.formatVolumeForDisplay(this.currentVolume);
             this.createSplitFlapDisplay(currentText);
+            // Reinitialize chart on resize for proper scaling
+            if (this.chart) {
+                this.initChart();
+                this.updateChart();
+            }
             // Note: We don't reset isFirstLoad here as this is just a resize, not a fresh load
+        }
+    }
+
+    initChart() {
+        if (this.chart) {
+            this.chart.destroy();
+        }
+
+        const ctx = this.chartElement.getContext('2d');
+        
+        this.chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Daily Volume',
+                    data: [],
+                    borderColor: '#2ee2a4',
+                    backgroundColor: (ctx) => {
+                        const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
+                        gradient.addColorStop(0, 'rgba(46, 226, 164, 0.2)'); // Top: 80% transparency
+                        gradient.addColorStop(1, 'rgba(46, 226, 164, 1)'); // Bottom: 0% transparency
+                        return gradient;
+                    },
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    pointHoverBackgroundColor: '#2ee2a4',
+                    pointHoverBorderColor: '#ffffff',
+                    pointHoverBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    intersect: false,
+                    mode: 'index'
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#ffffff',
+                        bodyColor: '#ffffff',
+                        borderColor: '#2ee2a4',
+                        borderWidth: 1,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return `Volume: ${context.parsed.y.toFixed(1)} S`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'day',
+                            displayFormats: {
+                                day: 'MMM dd'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            color: 'rgba(255, 255, 255, 0.3)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            maxTicksLimit: 7,
+                            font: {
+                                size: 10
+                            }
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        },
+                        border: {
+                            color: 'rgba(255, 255, 255, 0.3)'
+                        },
+                        ticks: {
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            callback: function(value) {
+                                return value.toLocaleString();
+                            },
+                            font: {
+                                size: 10
+                            }
+                        }
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: 0
+                    }
+                }
+            }
+        });
+    }
+
+    updateChart() {
+        if (!this.chart) {
+            this.initChart();
+        }
+
+        if (this.chartData && this.chartData.length > 0) {
+            console.log('Updating chart with', this.chartData.length, 'data points');
+            console.log('Date range:', this.chartData[0].date, 'to', this.chartData[this.chartData.length - 1].date);
+            
+            this.chart.data.labels = this.chartData.map(item => item.date);
+            this.chart.data.datasets[0].data = this.chartData.map(item => item.volume);
+            this.chart.update('none'); // No animation for updates
+        } else {
+            console.log('No chart data available to display');
         }
     }
 }

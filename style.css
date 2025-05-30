@@ -9,10 +9,11 @@ body {
     background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
     min-height: 100vh;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     overflow: hidden;
     position: relative;
+    padding-top: 30vh;
 }
 
 body::before {
@@ -220,6 +221,9 @@ body::before {
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    body {
+      padding-top: 15vh;
+    }
     .char {
         width: calc(80vw / 9);
         height: calc(80vw / 9 * 1.44);
@@ -289,5 +293,48 @@ body::before {
   
     .container {
         width: 98%;
+    }
+}
+
+/* Volume Chart Styling */
+.chart-container {
+    width: 80%;
+    max-height: 150px;
+    margin: 40px auto 0;
+    position: relative;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-container canvas {
+    max-height: 110px !important;
+}
+
+@media (max-width: 768px) {
+    .chart-container {
+        width: 95%;
+        margin: 30px auto 0;
+        padding: 15px;
+        max-height: 130px;
+    }
+    
+    .chart-container canvas {
+        max-height: 100px !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .chart-container {
+        width: 95%;
+        margin: 20px auto 0;
+        padding: 10px;
+        max-height: 120px;
+    }
+    
+    .chart-container canvas {
+        max-height: 90px !important;
     }
 }
