@@ -583,7 +583,7 @@ class VolumeDisplay {
             // Initial load
             this.updateVolume();
             
-            // Update every 3 seconds
+            // Update every 5 seconds
             this.updateInterval = setInterval(() => {
                 this.updateVolume();
             }, 5000);
@@ -632,8 +632,8 @@ class VolumeDisplay {
                     borderColor: '#2ee2a4',
                     backgroundColor: (ctx) => {
                         const gradient = ctx.chart.ctx.createLinearGradient(0, 0, 0, ctx.chart.height);
-                        gradient.addColorStop(0, 'rgba(46, 226, 164, 0.2)'); // Top: 80% transparency
-                        gradient.addColorStop(1, 'rgba(46, 226, 164, 1)'); // Bottom: 0% transparency
+                        gradient.addColorStop(0, 'rgba(46, 226, 164, 0.8)'); // Top
+                        gradient.addColorStop(0.9, 'rgba(34, 163, 118, 0)'); // Bottom
                         return gradient;
                     },
                     borderWidth: 2,
