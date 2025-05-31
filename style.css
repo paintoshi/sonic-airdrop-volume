@@ -5,7 +5,7 @@
 }
 
 body {
-    font-family: 'Courier New', monospace;
+    font-family: 'Orbitron', 'Fira Mono', monospace;
     background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
     min-height: 100vh;
     display: flex;
@@ -91,7 +91,7 @@ body::before {
 }
 
 .char-text {
-    font-family: 'Arial Black', 'Helvetica', sans-serif;
+    font-family: 'Orbitron', 'Fira Mono', monospace;
     font-weight: 900;
     font-size: clamp(57.6px, calc(80vw / 8.75), 130px);
     color: #ffffff;

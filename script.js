@@ -19,6 +19,7 @@ class VolumeDisplay {
         this.isInitialized = false;
         this.animationFrameId = null;
         this.isFirstLoad = true; // Track if this is the first volume load
+        this.isFetchingVolume = false; // Guard for concurrent updates
         
         // Price data
         this.sPrice = null; // Price of 1 S in USDC
@@ -30,7 +31,7 @@ class VolumeDisplay {
         
         // Animation timing settings (easy to adjust for testing)
         this.testCounterInterval = 1000; // Time between increments (ms) - 10 seconds
-        this.animationSpeed = 7; // Base flips per second for 3-second total animation
+        this.animationSpeed = 5; // Base flips per second for 3-second total animation
         this.animationSpeedVariation = 0.0; // Random variation in speed
         this.characterDelay = 100; // Delay between characters starting (ms)
         
@@ -64,13 +65,38 @@ class VolumeDisplay {
         document.body.innerHTML = `
             <div class="container">
                 <div class="volume-display clickable" title="Click to visit airdrop.paintswap.io">
-                    <div class="loading">Loading volume data...</div>
+                    <div class="loading-spinner">
+                        <div class="spinner"></div>
+                    </div>
                 </div>
                 <div class="chart-container">
                     <canvas id="volumeChart"></canvas>
                 </div>
             </div>
             <div class="status clickable" id="status" title="Click to visit airdrop.paintswap.io">Connecting...</div>
+            <style>
+                .loading-spinner {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    height: 100%;
+                }
+                .spinner {
+                    width: 160px;
+                    height: 160px;
+                    border: 8px solid rgba(46, 226, 164, 0.3);
+                    border-radius: 50%;
+                    border-top-color: #2ee2a4;
+                    animation: spin 1s ease-in-out infinite;
+                }
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+                .volume-display {
+                    position: relative;
+                    min-height: 200px;
+                }
+            </style>
         `;
         
         this.displayElement = document.querySelector('.volume-display');
@@ -152,7 +178,7 @@ class VolumeDisplay {
             console.log('S data points:', (sData.intervalDatas || sData.orderSoldIntervalDatas).length);
             console.log('USDC data points:', (usdcData.intervalDatas || usdcData.orderSoldIntervalDatas || []).length);
             console.log('SCUSD data points:', (scusdData.intervalDatas || scusdData.orderSoldIntervalDatas || []).length);
-
+            
             // Process and combine data
             const combinedData = this.combineVolumeData(sData, usdcData, scusdData);
             
@@ -163,10 +189,16 @@ class VolumeDisplay {
             this.chartData = combinedData.sort((a, b) => a.date - b.date);
             this.updateChart();
             
-            this.updateStatus(`Last updated: ${new Date().toLocaleDateString('en-US', { 
+            // Remove the loading spinner after the first load
+            if (this.displayElement.querySelector('.loading-spinner')) {
+                this.displayElement.querySelector('.loading-spinner').remove();
+            }
+            
+            // Update status after digits are ready
+            this.updateStatus(`Updated: ${new Date().toLocaleDateString('en-US', { 
                 month: 'long', 
                 day: 'numeric' 
-            })} ${new Date().toLocaleTimeString('en-US')}`, false);
+            })} - ${new Date().toLocaleTimeString('en-US')}`, false);
             
             return Math.floor(totalVolumeS);
             
@@ -272,9 +304,7 @@ class VolumeDisplay {
     }
 
     setupDisplay() {
-        // Create custom split-flap display starting with single digit
-        const initialText = '0';
-        this.createSplitFlapDisplay(initialText);
+        // Display will be initialized by updateDisplay on first data load
         this.isInitialized = true;
     }
 
@@ -509,37 +539,36 @@ class VolumeDisplay {
             flipping.style.display = 'block';
             
             if (ratio <= 0.5) {
-                // First half: top flap rotates down (0 to 90 degrees)
+                // Top flap (fromChar's top half) is rotating down.
+                flippingText.textContent = fromChar; // Flap is fromChar's top
+                upper.textContent = toChar;          // Stationary top *behind* flap shows toChar
+                lower.textContent = fromChar;        // Stationary bottom *behind* flap shows fromChar
+                
                 const rotation = ratio * 180; // 0 to 90 degrees
-                flippingText.textContent = fromChar;
                 flipping.style.top = '0px';
                 flipping.style.height = '50%';
                 flipping.style.transformOrigin = 'bottom center';
                 flipping.style.transform = `rotateX(-${rotation}deg)`;
                 flipping.style.zIndex = '10';
                 
-                // Reset text positioning for top half
                 flippingText.style.top = '0';
                 flippingText.style.clipPath = 'inset(0 0 50% 0)';
                 
-                upper.textContent = fromChar;
-                lower.textContent = fromChar;
-            } else {
-                // Second half: bottom flap rotates up (90 to 0 degrees)
+            } else { // ratio > 0.5
+                // Bottom flap (toChar's bottom half) is rotating down/into place.
+                flippingText.textContent = toChar;   // Flap is toChar's bottom
+                upper.textContent = toChar;          // Stationary top *behind* flap shows toChar
+                lower.textContent = fromChar;        // Stationary bottom *behind* flap still shows fromChar until animation completes
+                
                 const rotation = (1 - ratio) * 180; // 90 to 0 degrees
-                flippingText.textContent = toChar;
                 flipping.style.top = '50%';
                 flipping.style.height = '50%';
                 flipping.style.transformOrigin = 'top center';
                 flipping.style.transform = `rotateX(${rotation}deg)`;
                 flipping.style.zIndex = '10';
                 
-                // Position text to show bottom half
                 flippingText.style.top = 'calc(-100% - 4px)'; // Move text up so bottom half shows, but compensate for center divider
                 flippingText.style.clipPath = 'inset(50% 0 0 0)'; // Show only bottom half
-                
-                upper.textContent = toChar;
-                lower.textContent = fromChar;
             }
         }
     }
@@ -569,10 +598,20 @@ class VolumeDisplay {
             // Test mode is handled by startTestCounter
             return;
         }
+
+        if (this.isFetchingVolume) {
+            console.log('Update volume already in progress, skipping.');
+            return;
+        }
         
-        const newVolume = await this.fetchVolumeData();
-        if (newVolume !== null) {
-            this.updateDisplay(newVolume);
+        this.isFetchingVolume = true;
+        try {
+            const newVolume = await this.fetchVolumeData();
+            if (newVolume !== null) {
+                this.updateDisplay(newVolume);
+            }
+        } finally {
+            this.isFetchingVolume = false;
         }
     }
 
