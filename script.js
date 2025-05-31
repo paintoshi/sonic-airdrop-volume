@@ -638,6 +638,9 @@ class VolumeDisplay {
             cancelAnimationFrame(this.animationFrameId);
             this.animationFrameId = null;
         }
+        this.isAnimating = false;      // Reset animation flag
+        this.animations.clear();       // Clear any in-progress animation states
+        this.pendingVolume = null;     // Clear any pending volume update
         this.stopTestCounter();
     }
 
