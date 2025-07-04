@@ -64,6 +64,8 @@ class VolumeDisplay {
     createHTML() {
         document.body.innerHTML = `
             <div class="container">
+                <div class="volume-label">Sonic Airdrop</div>
+                <div class="volume-label-small">Total $ Trading Volume</div>
                 <div class="volume-display clickable" title="Click to visit airdrop.paintswap.io">
                     <div class="loading-spinner">
                         <div class="spinner"></div>
@@ -75,6 +77,42 @@ class VolumeDisplay {
             </div>
             <div class="status clickable" id="status" title="Click to visit airdrop.paintswap.io">Connecting...</div>
             <style>
+                .volume-label {
+                    text-align: center;
+                    color: rgba(255, 255, 255, 0.8);
+                    font-size: 24px;
+                    font-weight: 500;
+                    margin-bottom: 4px;
+                    letter-spacing: 0.5px;
+                    text-transform: uppercase;
+                }
+                .volume-label-small {
+                    text-align: center;
+                    color: rgba(255, 255, 255, 0.8);
+                    font-size: 14px;
+                    font-weight: 500;
+                    margin-bottom: 32px;
+                }
+                @media (max-width: 768px) {
+                    .volume-label {
+                        font-size: 24px;
+                        margin-bottom: 4px;
+                    }
+                    .volume-label-small {
+                        font-size: 12px;
+                        margin-bottom: 0px;
+                    }
+                }
+                @media (max-width: 480px) {
+                    .volume-label {
+                        font-size: 20px;
+                        margin-bottom: 4px;
+                    }
+                    .volume-label-small {
+                        font-size: 11px;
+                        margin-bottom: 0px;
+                    }
+                }
                 .loading-spinner {
                     display: flex;
                     justify-content: center;
@@ -182,10 +220,10 @@ class VolumeDisplay {
             // Process and combine data
             const combinedData = this.combineVolumeData(sData, usdcData, scusdData);
             
-            // Calculate total volume in S
-            const totalVolumeS = combinedData.reduce((sum, item) => sum + item.volume, 0);
+            // Calculate total volume in USD (convert S volume to USD using S price)
+            const totalVolumeUSD = combinedData.reduce((sum, item) => sum + item.volumeUSD, 0);
             
-            // Update chart with combined data
+            // Update chart with combined data (use USD for chart)
             this.chartData = combinedData.sort((a, b) => a.date - b.date);
             this.updateChart();
             
@@ -200,7 +238,7 @@ class VolumeDisplay {
                 day: 'numeric' 
             })} - ${new Date().toLocaleTimeString('en-US')}`, false);
             
-            return Math.floor(totalVolumeS);
+            return Math.floor(totalVolumeUSD);
             
         } catch (error) {
             console.error('Error fetching volume data:', error);
@@ -230,8 +268,9 @@ class VolumeDisplay {
                     dataMap.set(key, {
                         date: new Date(timestampMs),
                         volumeS: 0,
+                        volumeUSD: 0, // Add USD value
                         sources: [],
-                        breakdown: { S: 0, USDC: 0, SCUSD: 0 }
+                        breakdown: { S: 0, USDC: 0, SCUSD: 0, USD: 0 }
                     });
                 }
                 
@@ -257,16 +296,21 @@ class VolumeDisplay {
         processDataArray(scusdDataArray, 'SCUSD', 6, this.sPrice);
         
         // Convert map to array and format for chart
-        const result = Array.from(dataMap.values()).map(item => ({
-            date: item.date,
-            volume: Math.round(item.volumeS * 10) / 10, // Round to 1 decimal place
-            sources: item.sources,
-            breakdown: {
-                S: Math.round(item.breakdown.S * 10) / 10,
-                USDC: Math.round(item.breakdown.USDC * 10) / 10,
-                SCUSD: Math.round(item.breakdown.SCUSD * 10) / 10
-            }
-        }));
+        const result = Array.from(dataMap.values()).map(item => {
+            const usd = Math.round(item.volumeS * this.sPrice * 10) / 10;
+            return {
+                date: item.date,
+                volumeS: Math.round(item.volumeS * 10) / 10, // Keep S volume for logging
+                volumeUSD: usd, // Use USD value for chart
+                sources: item.sources,
+                breakdown: {
+                    S: Math.round(item.breakdown.S * 10) / 10,
+                    USDC: Math.round(item.breakdown.USDC * 10) / 10,
+                    SCUSD: Math.round(item.breakdown.SCUSD * 10) / 10,
+                    USD: usd
+                }
+            };
+        });
         
         console.log('Combined volume data processed:', result.length, 'unique dates');
         if (result.length > 0) {
@@ -276,10 +320,11 @@ class VolumeDisplay {
             console.log('- USDC data points:', usdcDataArray.length); 
             console.log('- SCUSD data points:', scusdDataArray.length);
             console.log('- Combined unique dates:', result.length);
-            
+            console.log('- Total volume in USD:', result.reduce((sum, item) => sum + item.volumeUSD, 0));
+            console.log('- Total volume in S:', result.reduce((sum, item) => sum + item.volumeS, 0));
             // Show breakdown for each date
             result.forEach(d => {
-                const breakdown = `S:${d.breakdown.S} + USDC:${d.breakdown.USDC} + SCUSD:${d.breakdown.SCUSD} = ${d.volume}`;
+                const breakdown = `S:${d.breakdown.S} + USDC:${d.breakdown.USDC} + SCUSD:${d.breakdown.SCUSD} = $${d.volumeUSD}`;
                 console.log(`${d.date.toDateString()}: ${breakdown}`);
             });
         }
@@ -708,7 +753,7 @@ class VolumeDisplay {
                         displayColors: false,
                         callbacks: {
                             label: function(context) {
-                                return `Volume: ${context.parsed.y.toFixed(1)} S`;
+                                return `Volume: $${context.parsed.y.toFixed(1)}`;
                             }
                         }
                     }
@@ -773,7 +818,7 @@ class VolumeDisplay {
             console.log('Date range:', this.chartData[0].date, 'to', this.chartData[this.chartData.length - 1].date);
             
             this.chart.data.labels = this.chartData.map(item => item.date);
-            this.chart.data.datasets[0].data = this.chartData.map(item => item.volume);
+            this.chart.data.datasets[0].data = this.chartData.map(item => item.volumeUSD);
             this.chart.update('none'); // No animation for updates
         } else {
             console.log('No chart data available to display');
