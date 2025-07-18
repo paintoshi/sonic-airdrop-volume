@@ -1,7 +1,7 @@
 class VolumeDisplay {
     constructor() {
         // Base API URLs for easy configuration
-        this.baseApiUrl = 'https://api-airdrop-beta.paintswap.finance';
+        this.baseApiUrl = 'https://api-airdrop.paintswap.finance';
         this.priceApiUrl = 'https://api.paintswap.finance/v2/tokens?addresses%5B0%5D=0x1b6382dbdea11d97f24495c9a90b7c88469134a4numToFetch=1&chainId=146';
         
         // API endpoints for different tokens
