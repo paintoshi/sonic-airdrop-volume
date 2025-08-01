@@ -65,7 +65,7 @@ class VolumeDisplay {
         document.body.innerHTML = `
             <div class="container">
                 <div class="volume-label">Sonic Airdrop</div>
-                <div class="volume-label-small">Total $ Trading Volume</div>
+                <div class="volume-label-small">Total $USD Equivalent Trading Volume</div>
                 <div class="volume-display clickable" title="Click to visit airdrop.paintswap.io">
                     <div class="loading-spinner">
                         <div class="spinner"></div>
