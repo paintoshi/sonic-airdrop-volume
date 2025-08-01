@@ -667,10 +667,10 @@ class VolumeDisplay {
             // Initial load
             this.updateVolume();
             
-            // Update every 5 seconds
+            // Update every 30 second
             this.updateInterval = setInterval(() => {
                 this.updateVolume();
-            }, 5000);
+            }, 30000);
         }
     }
 
