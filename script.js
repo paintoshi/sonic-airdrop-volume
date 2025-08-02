@@ -98,7 +98,7 @@ class VolumeDisplay {
                 .volume-s-equivalent {
                     text-align: center;
                     color: rgba(255, 255, 255, 0.6);
-                    font-size: 12px;
+                    font-size: 14px;
                     font-weight: 400;
                     margin-bottom: 32px;
                 }
@@ -126,7 +126,7 @@ class VolumeDisplay {
                         margin-bottom: 0px;
                     }
                     .volume-s-equivalent {
-                        font-size: 9px;
+                        font-size: 11px;
                         margin-bottom: 4px;
                     }
                 }
@@ -238,11 +238,11 @@ class VolumeDisplay {
             // Process and combine data
             const combinedData = this.combineVolumeData(sData, usdcData, scusdData);
             
-            // Calculate total volume in USD (convert S volume to USD using S price)
-            const totalVolumeUSD = combinedData.reduce((sum, item) => sum + item.volumeUSD, 0);
-            
-            // Calculate total volume in S directly (more efficient than converting USD back to S)
+            // Calculate total volume in S directly (unrounded)
             const totalVolumeS = combinedData.reduce((sum, item) => sum + item.volumeS, 0);
+            
+            // Calculate total volume in USD from unrounded S total (to avoid rounding errors)
+            const totalVolumeUSD = totalVolumeS * this.sPrice;
             
             // Update S equivalent display
             this.updateSEquivalentDirect(totalVolumeS);
@@ -321,17 +321,16 @@ class VolumeDisplay {
         
         // Convert map to array and format for chart
         const result = Array.from(dataMap.values()).map(item => {
-            const usd = Math.round(item.volumeS * this.sPrice * 10) / 10;
             return {
                 date: item.date,
-                volumeS: Math.round(item.volumeS * 10) / 10, // Keep S volume for logging
-                volumeUSD: usd, // Use USD value for chart
+                volumeS: item.volumeS, // Keep unrounded S volume for accurate calculations
+                volumeUSD: item.volumeS * this.sPrice, // Calculate USD from unrounded S
                 sources: item.sources,
                 breakdown: {
-                    S: Math.round(item.breakdown.S * 10) / 10,
-                    USDC: Math.round(item.breakdown.USDC * 10) / 10,
-                    SCUSD: Math.round(item.breakdown.SCUSD * 10) / 10,
-                    USD: usd
+                    S: item.breakdown.S,
+                    USDC: item.breakdown.USDC,
+                    SCUSD: item.breakdown.SCUSD,
+                    USD: item.volumeS * this.sPrice
                 }
             };
         });
@@ -365,7 +364,7 @@ class VolumeDisplay {
 
     updateSEquivalentDirect(totalVolumeS) {
         if (this.sEquivalentElement && totalVolumeS) {
-            this.sEquivalentElement.textContent = `From ${Math.round(totalVolumeS).toLocaleString()} S`;
+            this.sEquivalentElement.textContent = `From ${Math.round(totalVolumeS).toLocaleString("en-US")} S at ${this.sPrice.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} USD`;
         }
     }
 
