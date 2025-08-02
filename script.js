@@ -15,6 +15,7 @@ class VolumeDisplay {
         this.currentVolume = 0;
         this.displayElement = null;
         this.statusElement = null;
+        this.sEquivalentElement = null;
         this.updateInterval = null;
         this.isInitialized = false;
         this.animationFrameId = null;
@@ -66,6 +67,7 @@ class VolumeDisplay {
             <div class="container">
                 <div class="volume-label">Sonic Airdrop</div>
                 <div class="volume-label-small">Total $USD Equivalent Trading Volume</div>
+                <div class="volume-s-equivalent" id="volumeSEquivalent"></div>
                 <div class="volume-display clickable" title="Click to visit airdrop.paintswap.io">
                     <div class="loading-spinner">
                         <div class="spinner"></div>
@@ -91,6 +93,13 @@ class VolumeDisplay {
                     color: rgba(255, 255, 255, 0.8);
                     font-size: 14px;
                     font-weight: 500;
+                    margin-bottom: 4px;
+                }
+                .volume-s-equivalent {
+                    text-align: center;
+                    color: rgba(255, 255, 255, 0.6);
+                    font-size: 12px;
+                    font-weight: 400;
                     margin-bottom: 32px;
                 }
                 @media (max-width: 768px) {
@@ -102,6 +111,10 @@ class VolumeDisplay {
                         font-size: 12px;
                         margin-bottom: 0px;
                     }
+                    .volume-s-equivalent {
+                        font-size: 12px;
+                        margin-bottom: 4px;
+                    }
                 }
                 @media (max-width: 480px) {
                     .volume-label {
@@ -111,6 +124,10 @@ class VolumeDisplay {
                     .volume-label-small {
                         font-size: 11px;
                         margin-bottom: 0px;
+                    }
+                    .volume-s-equivalent {
+                        font-size: 9px;
+                        margin-bottom: 4px;
                     }
                 }
                 .loading-spinner {
@@ -139,6 +156,7 @@ class VolumeDisplay {
         
         this.displayElement = document.querySelector('.volume-display');
         this.statusElement = document.getElementById('status');
+        this.sEquivalentElement = document.getElementById('volumeSEquivalent');
         this.chartElement = document.getElementById('volumeChart');
         
         // Add click event listener to status element
@@ -222,6 +240,12 @@ class VolumeDisplay {
             
             // Calculate total volume in USD (convert S volume to USD using S price)
             const totalVolumeUSD = combinedData.reduce((sum, item) => sum + item.volumeUSD, 0);
+            
+            // Calculate total volume in S directly (more efficient than converting USD back to S)
+            const totalVolumeS = combinedData.reduce((sum, item) => sum + item.volumeS, 0);
+            
+            // Update S equivalent display
+            this.updateSEquivalentDirect(totalVolumeS);
             
             // Update chart with combined data (use USD for chart)
             this.chartData = combinedData.sort((a, b) => a.date - b.date);
@@ -336,6 +360,12 @@ class VolumeDisplay {
         if (this.statusElement) {
             this.statusElement.textContent = message;
             this.statusElement.className = isUpdating ? 'status updating clickable' : 'status clickable';
+        }
+    }
+
+    updateSEquivalentDirect(totalVolumeS) {
+        if (this.sEquivalentElement && totalVolumeS) {
+            this.sEquivalentElement.textContent = `From ${Math.round(totalVolumeS).toLocaleString()} S`;
         }
     }
 
