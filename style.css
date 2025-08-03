@@ -68,6 +68,26 @@ body::before {
     transform-style: preserve-3d;
 }
 
+.visual-separator {
+    width: 32px;
+    height: 32px;
+    margin: 0 -4px;
+    position: relative;
+    bottom: -13px;
+    align-self: flex-end;
+    background-image: url('comma.svg');
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.5));
+}
+
+.mobile-spacer {
+    width: 8px;
+    height: 32px;
+    display: none;
+}
+
 .upper, .lower, .flipping {
     position: absolute;
     width: 100%;
@@ -220,6 +240,17 @@ body::before {
 }
 
 /* Responsive Design */
+@media (max-width: 1024px) {
+    .visual-separator {
+        display: none;
+    }
+    
+    .mobile-spacer {
+        display: block;
+    }
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
     body {
       padding-top: 15vh;
@@ -229,6 +260,10 @@ body::before {
         height: calc(80vw / 9 * 1.44);
         min-width: 45px;
         min-height: 64.8px;
+    }
+
+    .visual-separator {
+        display: none;
     }
 
     .char-text {
@@ -272,6 +307,10 @@ body::before {
         height: calc(80vw / 8.5 * 1.44);
         min-width: 35px;
         min-height: 50.4px;
+    }
+    
+    .visual-separator {
+        display: none;
     }
     
     .char-text {

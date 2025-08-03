@@ -15,7 +15,7 @@ class VolumeDisplay {
         this.currentVolume = 0;
         this.displayElement = null;
         this.statusElement = null;
-        this.sEquivalentElement = null;
+        this.priceStatsElement = null;
         this.updateInterval = null;
         this.isInitialized = false;
         this.animationFrameId = null;
@@ -66,8 +66,8 @@ class VolumeDisplay {
         document.body.innerHTML = `
             <div class="container">
                 <div class="volume-label">Sonic Airdrop</div>
-                <div class="volume-label-small">Total $USD Equivalent Trading Volume</div>
-                <div class="volume-s-equivalent" id="volumeSEquivalent"></div>
+                <div class="volume-label-small">Total Trading Volume in $S</div>
+                <div class="price-stats" id="priceStats"></div>
                 <div class="volume-display clickable" title="Click to visit airdrop.paintswap.io">
                     <div class="loading-spinner">
                         <div class="spinner"></div>
@@ -82,7 +82,7 @@ class VolumeDisplay {
                 .volume-label {
                     text-align: center;
                     color: rgba(255, 255, 255, 0.8);
-                    font-size: 24px;
+                    font-size: 32px;
                     font-weight: 500;
                     margin-bottom: 4px;
                     letter-spacing: 0.5px;
@@ -91,42 +91,42 @@ class VolumeDisplay {
                 .volume-label-small {
                     text-align: center;
                     color: rgba(255, 255, 255, 0.8);
-                    font-size: 14px;
+                    font-size: 16px;
                     font-weight: 500;
                     margin-bottom: 4px;
                 }
-                .volume-s-equivalent {
+                .price-stats {
                     text-align: center;
                     color: rgba(255, 255, 255, 0.6);
                     font-size: 14px;
                     font-weight: 400;
-                    margin-bottom: 32px;
+                    margin-bottom: 48px;
                 }
                 @media (max-width: 768px) {
                     .volume-label {
-                        font-size: 24px;
+                        font-size: 32px;
                         margin-bottom: 4px;
                     }
                     .volume-label-small {
-                        font-size: 12px;
+                        font-size: 16px;
                         margin-bottom: 0px;
                     }
-                    .volume-s-equivalent {
+                    .price-stats {
                         font-size: 12px;
                         margin-bottom: 4px;
                     }
                 }
                 @media (max-width: 480px) {
                     .volume-label {
-                        font-size: 20px;
+                        font-size: 30px;
                         margin-bottom: 4px;
                     }
                     .volume-label-small {
-                        font-size: 11px;
+                        font-size: 14px;
                         margin-bottom: 0px;
                     }
-                    .volume-s-equivalent {
-                        font-size: 11px;
+                    .price-stats {
+                        font-size: 12px;
                         margin-bottom: 4px;
                     }
                 }
@@ -156,7 +156,7 @@ class VolumeDisplay {
         
         this.displayElement = document.querySelector('.volume-display');
         this.statusElement = document.getElementById('status');
-        this.sEquivalentElement = document.getElementById('volumeSEquivalent');
+        this.priceStatsElement = document.getElementById('priceStats');
         this.chartElement = document.getElementById('volumeChart');
         
         // Add click event listener to status element
@@ -244,8 +244,8 @@ class VolumeDisplay {
             // Calculate total volume in USD from unrounded S total (to avoid rounding errors)
             const totalVolumeUSD = totalVolumeS * this.sPrice;
             
-            // Update S equivalent display
-            this.updateSEquivalentDirect(totalVolumeS);
+            // Update price stats display
+            this.updatePriceStatsDirect(totalVolumeS);
             
             // Update chart with combined data (use USD for chart)
             this.chartData = combinedData.sort((a, b) => a.date - b.date);
@@ -262,7 +262,7 @@ class VolumeDisplay {
                 day: 'numeric' 
             })} - ${new Date().toLocaleTimeString('en-US')}`, false);
             
-            return Math.floor(totalVolumeUSD);
+            return Math.floor(totalVolumeS);
             
         } catch (error) {
             console.error('Error fetching volume data:', error);
@@ -362,9 +362,10 @@ class VolumeDisplay {
         }
     }
 
-    updateSEquivalentDirect(totalVolumeS) {
-        if (this.sEquivalentElement && totalVolumeS) {
-            this.sEquivalentElement.textContent = `From ${Math.round(totalVolumeS).toLocaleString("en-US")} S at ${this.sPrice.toLocaleString("en-US", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} USD`;
+    updatePriceStatsDirect(totalVolumeS) {
+        if (this.priceStatsElement && totalVolumeS) {
+            const totalVolumeUSD = totalVolumeS * this.sPrice;
+            this.priceStatsElement.textContent = `USD Equivalent: $${Math.round(totalVolumeUSD).toLocaleString("en-US")}`;
         }
     }
 
@@ -387,6 +388,7 @@ class VolumeDisplay {
         let html = '<div class="splitflap">';
         
         chars.forEach((char, index) => {
+            // Create a regular animated character
             html += `
                 <div class="char" data-index="${index}" data-char="${char}">
                     <div class="upper">
@@ -400,6 +402,14 @@ class VolumeDisplay {
                     </div>
                 </div>
             `;
+            
+            // Add visual separator after every 3rd digit from right
+            const positionFromRight = chars.length - index - 1;
+            if (positionFromRight > 0 && positionFromRight % 3 === 0) {
+                html += '<div class="visual-separator"></div>';
+                // Add invisible spacer for mobile (below 1024px)
+                html += '<div class="mobile-spacer"></div>';
+            }
         });
         
         html += '</div>';
