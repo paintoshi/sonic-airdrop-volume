@@ -69,11 +69,11 @@ body::before {
 }
 
 .visual-separator {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     margin: 0 -4px;
     position: relative;
-    bottom: -13px;
+    bottom: -15px;
     align-self: flex-end;
     background-image: url('comma.svg');
     background-size: contain;
@@ -240,6 +240,14 @@ body::before {
 }
 
 /* Responsive Design */
+@media (max-width: 1600px) {
+    .visual-separator {
+        width: 32px;
+        height: 32px;
+        bottom: -13px;
+    }
+}
+
 @media (max-width: 1024px) {
     .visual-separator {
         display: none;
