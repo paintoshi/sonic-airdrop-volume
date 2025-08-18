@@ -792,7 +792,7 @@ class VolumeDisplay {
                         displayColors: false,
                         callbacks: {
                             label: function(context) {
-                                return `Volume: $${context.parsed.y.toFixed(1)}`;
+                                return `Volume: ${context.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} S`;
                             }
                         }
                     }
@@ -845,6 +845,10 @@ class VolumeDisplay {
                 }
             }
         });
+        
+        // Set canvas height directly to override Chart.js inline styles
+        this.chartElement.height = 300;
+        this.chartElement.style.height = '300px';
     }
 
     updateChart() {
@@ -857,7 +861,7 @@ class VolumeDisplay {
             console.log('Date range:', this.chartData[0].date, 'to', this.chartData[this.chartData.length - 1].date);
             
             this.chart.data.labels = this.chartData.map(item => item.date);
-            this.chart.data.datasets[0].data = this.chartData.map(item => item.volumeUSD);
+            this.chart.data.datasets[0].data = this.chartData.map(item => item.volumeS);
             this.chart.update('none'); // No animation for updates
         } else {
             console.log('No chart data available to display');
