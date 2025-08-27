@@ -351,7 +351,7 @@ body::before {
 /* Volume Chart Styling */
 .chart-container {
     width: 80%;
-    max-height: 300px;
+    max-height: 350px;
     margin: 40px auto 0;
     position: relative;
     background: rgba(0, 0, 0, 0.2);
@@ -388,7 +388,7 @@ body::before {
         width: 95%;
         margin: 20px auto 0;
         padding: 10px;
-        max-height: 200px;
+        max-height: 280px;
     }
     
     .chart-container canvas {
@@ -399,13 +399,13 @@ body::before {
 @media (max-width: 400px) {
     .chart-container {
         width: 95%;
-        margin: 20px auto 0;
+        margin: 0px auto 0;
         padding: 10px;
-        max-height: 180px;
+        max-height: 250px;
     }
     
     .chart-container canvas {
-        max-height: 180px !important;
+        max-height: 160px !important;
     }
 
     body {

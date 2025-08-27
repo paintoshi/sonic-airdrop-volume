@@ -49,6 +49,8 @@ class VolumeDisplay {
         this.chart = null;
         this.chartData = [];
         this.chartElement = null;
+        this.chartFilterToggle = null;
+        this.showMonthOnly = true; // Default to showing only last 31 days
         
         this.init();
     }
@@ -74,6 +76,11 @@ class VolumeDisplay {
                     </div>
                 </div>
                 <div class="chart-container">
+                    <div class="chart-filter-toggle">
+                        <button id="chartFilterToggle" class="filter-btn active">Month</button>
+                        <span class="filter-separator">|</span>
+                        <button id="chartFilterAll" class="filter-btn">All</button>
+                    </div>
                     <canvas id="volumeChart"></canvas>
                 </div>
             </div>
@@ -101,6 +108,38 @@ class VolumeDisplay {
                     font-size: 14px;
                     font-weight: 400;
                     margin-bottom: 48px;
+                }
+                .chart-filter-toggle {
+                    text-align: center;
+                    margin-bottom: 20px;
+                }
+                .filter-btn {
+                    background: none;
+                    border: 1px solid rgba(46, 226, 164, 0.5);
+                    color: rgba(255, 255, 255, 0.7);
+                    padding: 8px 16px;
+                    margin: 0 4px;
+                    border-radius: 20px;
+                    cursor: pointer;
+                    font-size: 14px;
+                    font-weight: 500;
+                    transition: all 0.3s ease;
+                    width: 80px;
+                }
+                .filter-btn:hover {
+                    background: rgba(46, 226, 164, 0.1);
+                    border-color: rgba(46, 226, 164, 0.8);
+                    color: rgba(255, 255, 255, 0.9);
+                }
+                .filter-btn.active {
+                    background: rgba(46, 226, 164, 0.2);
+                    border-color: #2ee2a4;
+                    color: #2ee2a4;
+                }
+                .filter-separator {
+                    color: rgba(255, 255, 255, 0.4);
+                    font-weight: 300;
+                    margin: 0 8px;
                 }
                 @media (max-width: 768px) {
                     .volume-label {
@@ -158,6 +197,7 @@ class VolumeDisplay {
         this.statusElement = document.getElementById('status');
         this.priceStatsElement = document.getElementById('priceStats');
         this.chartElement = document.getElementById('volumeChart');
+        this.chartFilterToggle = document.getElementById('chartFilterToggle');
         
         // Add click event listener to status element
         this.statusElement.addEventListener('click', () => {
@@ -167,6 +207,15 @@ class VolumeDisplay {
         // Add click event listener to volume display element
         this.displayElement.addEventListener('click', () => {
             window.open(this.externalLink, '_blank');
+        });
+        
+        // Add click event listeners to filter toggle buttons
+        this.chartFilterToggle.addEventListener('click', () => {
+            this.setChartFilter(true);
+        });
+        
+        document.getElementById('chartFilterAll').addEventListener('click', () => {
+            this.setChartFilter(false);
         });
     }
 
@@ -860,12 +909,51 @@ class VolumeDisplay {
             console.log('Updating chart with', this.chartData.length, 'data points');
             console.log('Date range:', this.chartData[0].date, 'to', this.chartData[this.chartData.length - 1].date);
             
-            this.chart.data.labels = this.chartData.map(item => item.date);
-            this.chart.data.datasets[0].data = this.chartData.map(item => item.volumeS);
+            // Filter data based on current filter setting
+            const filteredData = this.getFilteredChartData();
+            
+            this.chart.data.labels = filteredData.map(item => item.date);
+            this.chart.data.datasets[0].data = filteredData.map(item => item.volumeS);
             this.chart.update('none'); // No animation for updates
         } else {
             console.log('No chart data available to display');
         }
+    }
+
+    getFilteredChartData() {
+        if (!this.chartData || this.chartData.length === 0) {
+            return [];
+        }
+        
+        if (this.showMonthOnly) {
+            // Show only last 31 days
+            const thirtyOneDaysAgo = new Date();
+            thirtyOneDaysAgo.setDate(thirtyOneDaysAgo.getDate() - 31);
+            
+            return this.chartData.filter(item => item.date >= thirtyOneDaysAgo);
+        } else {
+            // Show all data
+            return this.chartData;
+        }
+    }
+
+    setChartFilter(showMonthOnly) {
+        this.showMonthOnly = showMonthOnly;
+        
+        // Update button states
+        const monthBtn = document.getElementById('chartFilterToggle');
+        const allBtn = document.getElementById('chartFilterAll');
+        
+        if (showMonthOnly) {
+            monthBtn.classList.add('active');
+            allBtn.classList.remove('active');
+        } else {
+            monthBtn.classList.remove('active');
+            allBtn.classList.add('active');
+        }
+        
+        // Update chart with filtered data
+        this.updateChart();
     }
 }
 
